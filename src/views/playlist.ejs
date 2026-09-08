@@ -1,0 +1,7 @@
+<%- include('partials/header') %>
+<div class="page-heading"><div><p class="eyebrow">SAVED FOR YOU</p><h1>My playlist</h1><p class="muted"><%= items.length %> <%= items.length === 1 ? 'video' : 'videos' %></p></div><a class="button" href="/search">Find videos</a></div>
+<% if (!items.length) { %><section class="empty"><h2>Your playlist is empty</h2><p>Search YouTube and save something worth watching.</p><a href="/search">Search videos</a></section><% } else { %><div class="grid">
+<% for (const item of items) { %><article class="card"><a href="/playlist/<%= item.id %>/play" aria-label="Play <%= item.title %>"><img src="<%= item.thumbnailUrl %>" alt="" width="320" height="180" loading="lazy"></a>
+<div class="card-body"><h2 class="video-title"><%= item.title %></h2><p class="muted"><%= item.channelTitle %></p><div class="actions"><a class="button" href="/playlist/<%= item.id %>/play">Play video</a>
+<form action="/playlist/<%= item.id %>/remove" method="post"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="danger" type="submit" aria-label="Remove <%= item.title %>">Remove</button></form></div></div></article><% } %></div><% } %>
+<%- include('partials/footer') %>

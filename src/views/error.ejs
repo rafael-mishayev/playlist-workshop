@@ -1,0 +1,1 @@
+<%- include('partials/header') %><section class="empty"><h1><%= title %></h1><p role="alert"><%= message %></p><a href="<%= currentUser ? '/search' : '/login' %>">Return to <%= currentUser ? 'search' : 'login' %></a></section><%- include('partials/footer') %>

@@ -1,0 +1,15 @@
+<%- include('partials/header') %>
+    <a href="<%= backUrl %>">← Back</a>
+    <h1 class="player-title">
+        <%= item.title %>
+    </h1>
+    <p class="muted">
+        <%= item.channelTitle %>
+    </p>
+    <div class="player"><iframe src="<%= item.embedUrl %>" title="<%= item.title %>"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+    <p class="muted">If this video is no longer available for embedded playback, <a
+            href="https://www.youtube.com/watch?v=<%= item.videoId %>" target="_blank" rel="noopener noreferrer">watch
+            on YouTube</a>.</p>
+    <%- include('partials/footer') %>

@@ -1,0 +1,14 @@
+<%- include('partials/header') %>
+<section class="auth panel"><p class="eyebrow">YOUR VIDEO COLLECTION</p><h1><%= title %></h1>
+<p class="muted"><%= mode === 'register' ? 'Create an account to save your favorite videos.' : 'Log in to search and manage your playlist.' %></p>
+<% if (error) { %><p class="error" role="alert"><%= error %></p><% } %>
+<form action="/<%= mode %>" method="post" class="stack">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+<label for="username">Username</label><input id="username" name="username" value="<%= username %>" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" autocomplete="username" aria-describedby="username-help">
+<small id="username-help">3–30 letters, numbers, or underscores.</small>
+<label for="password">Password</label><input id="password" name="password" type="password" required <%= mode === 'register' ? 'minlength=8' : '' %> autocomplete="<%= mode === 'register' ? 'new-password' : 'current-password' %>">
+<% if (mode === 'register') { %><small>At least 8 characters; no more than 72 UTF-8 bytes.</small>
+<label for="confirmPassword">Confirm password</label><input id="confirmPassword" name="confirmPassword" type="password" required autocomplete="new-password"><% } %>
+<button type="submit"><%= title %></button></form>
+<p><% if (mode === 'register') { %>Already registered? <a href="/login">Log in</a><% } else { %>New here? <a href="/register">Create an account</a><% } %></p></section>
+<%- include('partials/footer') %>

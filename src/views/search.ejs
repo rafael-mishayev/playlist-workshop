@@ -1,0 +1,77 @@
+<%- include('partials/header') %>
+
+    <p class="eyebrow">DISCOVER &amp; SAVE</p>
+    <h1>Find your next video.</h1>
+
+    <form class="search-form" action="/search" method="get">
+        <label class="sr-only" for="q">Search YouTube</label>
+
+        <input type="search" id="q" name="q" placeholder="Search YouTube videos…" value="<%= query %>" required
+            maxlength="100">
+
+        <button type="submit">Search YouTube</button>
+    </form>
+
+    <% if (error) { %>
+        <p class="error" role="alert">
+            <%= error %>
+        </p>
+        <% } %>
+
+            <% if (videos.length) { %>
+                <h2>Results for “<%= query %>”</h2>
+
+                <div class="grid">
+                    <% for (const video of videos) { %>
+                        <article class="card">
+                            <a href="/watch/<%= video.videoId %>" aria-label="Play <%= video.title %>">
+                                <img src="<%= video.thumbnailUrl %>" alt="" width="320" height="180" loading="lazy">
+                            </a>
+
+                            <div class="card-body">
+                                <h3>
+                                    <%= video.title %>
+                                </h3>
+                                <p class="muted">
+                                    <%= video.channelTitle %>
+                                </p>
+
+                                <div class="actions">
+                                    <a class="button secondary" href="/watch/<%= video.videoId %>">
+                                        Play video
+                                    </a>
+
+                                    <% if (savedIds.has(video.videoId)) { %>
+                                        <a class="button secondary" href="/playlist">
+                                            In your playlist
+                                        </a>
+                                        <% } else { %>
+                                            <form action="/playlist" method="post">
+                                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                                                <input type="hidden" name="videoId" value="<%= video.videoId %>">
+
+                                                <button type="submit">
+                                                    Add to Playlist
+                                                </button>
+                                            </form>
+                                            <% } %>
+                                </div>
+                            </div>
+                        </article>
+                        <% } %>
+                </div>
+                <% } else if (!error) { %>
+                    <section class="empty">
+                        <h2>
+                            <%= query ? 'No videos found' : 'Your next discovery starts here' %>
+                        </h2>
+
+                        <p>
+                            <%= query ? 'Try a different search phrase.' : 'Search by topic, video title, or channel.'
+                                %>
+                        </p>
+                    </section>
+                    <% } %>
+
+                        <%- include('partials/footer') %>

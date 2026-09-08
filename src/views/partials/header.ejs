@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> · Playlist Workshop</title><link rel="stylesheet" href="/styles.css"></head><body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar"><a class="brand" href="/">▶ Playlist Workshop</a><nav aria-label="Main navigation">
+<% if (currentUser) { %><a href="/search">Search</a><a href="/playlist">My playlist</a><span class="username"><%= currentUser.username %></span>
+<form action="/logout" method="post"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="secondary" type="submit">Log out</button></form>
+<% } else { %><a href="/login">Log in</a><a href="/register">Create account</a><% } %>
+</nav></header><main id="main" class="container">
+<% if (notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
