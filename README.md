@@ -7,6 +7,13 @@ keep a personal playlist. Server-rendered with Express 5, EJS and SQLite on a
 layered MVC + Repository architecture - no ORM, no frontend framework, no
 client-side JavaScript.
 
+![Search results with videos already saved to the playlist](docs/screenshots/search.png)
+
+<p>
+  <img src="docs/screenshots/playlist.png" alt="A user's saved playlist" width="49%">
+  <img src="docs/screenshots/player.png" alt="Playing a saved video in the embedded player" width="49%">
+</p>
+
 ## Features
 
 - **Accounts** - register and log in; sessions are stored in SQLite and survive
