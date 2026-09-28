@@ -75,6 +75,28 @@ test('SSR authentication, CSRF, ownership, persistence, and logout', async t => 
   assert.equal(sessions.find('expired'), null);
 });
 
+test('Search-result playback is limited to the session\'s latest results', async t => {
+  const dir = mkdtempSync(join(process.cwd(), '.test-playlist-'));
+  const application = new Application({ ...config, dbPath: join(dir, 'test.sqlite') });
+  t.after(() => { application.close(); rmSync(dir, { recursive: true, force: true }); });
+  const register = async username => {
+    const agent = request.agent(application.app);
+    const page = await agent.get('/register');
+    await agent.post('/register').type('form').send({ _csrf: token(page), username, password: 'password123', confirmPassword: 'password123' }).expect(303);
+    return agent;
+  };
+  await request(application.app).get('/watch/dQw4w9WgXcQ').expect(302).expect('Location', '/login');
+  const alice = await register('alice');
+  await alice.get('/watch/dQw4w9WgXcQ').expect(404);
+  await alice.get('/search?q=music').expect(200);
+  const player = await alice.get('/watch/dQw4w9WgXcQ').expect(200).expect(/https:\/\/www.youtube.com\/embed\/dQw4w9WgXcQ/);
+  assert.match(player.text, /&lt;script&gt;/);
+  assert.ok(!player.text.includes('<script>alert(1)</script>'));
+  await alice.get('/watch/aaaaaaaaaaa').expect(404);
+  const bob = await register('bob');
+  await bob.get('/watch/dQw4w9WgXcQ').expect(404);
+});
+
 test('YouTube request contract, entities, and safe upstream failures', async () => {
   const service = new YouTubeService('private-key', { async get(url, options) {
     assert.equal(url, 'https://www.googleapis.com/youtube/v3/search');
