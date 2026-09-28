@@ -1,87 +1,80 @@
 # Playlist Workshop
 
-Server-rendered Node.js course project: Express, EJS, SQLite, ES6 classes, MVC,
-and the Repository Pattern. No frontend framework or ORM.
+[![Tests](https://github.com/rafael-mishayev/playlist-workshop/actions/workflows/test.yml/badge.svg)](https://github.com/rafael-mishayev/playlist-workshop/actions/workflows/test.yml)
 
-## Quick start
+A YouTube playlist manager with user accounts: search YouTube, watch videos, and
+keep a personal playlist. Server-rendered with Express 5, EJS and SQLite on a
+layered MVC + Repository architecture - no ORM, no frontend framework, no
+client-side JavaScript.
 
-Use Node.js 22 or 24 LTS and npm. From this directory:
+## Features
 
-```bash
-npm ci
-cp .env.example .env
-node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
-```
+- **Accounts** - register and log in; sessions are stored in SQLite and survive
+  server restarts.
+- **YouTube search** - search through the YouTube Data API v3 and play any result
+  in an embedded player before deciding to save it.
+- **Personal playlist** - save videos, play them later, and remove them. Each user
+  only ever sees and controls their own items.
+- **Graceful without an API key** - accounts and saved playlists work without one;
+  search shows a configuration message instead of failing.
+- **Friendly upstream errors** - timeouts, exhausted quota and YouTube failures
+  render clear HTML error pages, with no automatic retries burning extra quota.
 
-Copy the generated secret into `SESSION_SECRET` in `.env`. Set your own
-`YOUTUBE_API_KEY`, then run:
+## Security highlights
 
-```bash
-npm start
-```
-
-Open http://localhost:3000. Use `npm run dev` for watch mode. SQLite tables and the
-data directory are created automatically. Never commit `.env` or `data/`.
-Native modules better-sqlite3 and bcrypt may require Python and C/C++ build tools
-if a prebuilt binary is unavailable for your platform.
-
-## YouTube configuration
-
-Create/select a Google Cloud project, enable YouTube Data API v3, create an API
-key, and restrict it to that API. For servers with fixed outbound IPs, add an IP
-restriction; browser referrer restrictions do not suit server-side requests.
-Put the key in `.env` and restart. No API key is included in this project.
-
-Authentication and saved playlists work without a key; search shows a configuration
-message. Requests use `part=snippet`, `type=video`, `videoEmbeddable=true`, and
-`maxResults=12`. The key stays on the server. Timeout, quota, and upstream failures
-render HTML errors. No automatic retries consume extra quota.
-
-Playlists are local to this application and do not modify YouTube accounts.
-Videos can later become unavailable or restricted; the player includes a link to
-watch on YouTube.
-
-Users can play a video directly from the latest search results before saving it.
-Search-result playback uses the results stored in the server-side session and does
-not perform another YouTube API request. Because only the latest results are kept,
-an older search page may require the user to search again before playing or saving
-a video.
+- **Passwords** - bcrypt with cost 12. Passwords must be 8+ characters and at most
+  72 UTF-8 bytes, because bcrypt silently truncates anything longer.
+- **Sessions** - the session ID rotates on login and registration, logout destroys
+  the stored session, and sessions expire after 30 minutes of inactivity. Cookies
+  are HttpOnly, SameSite=Lax, and Secure in production.
+- **CSRF** - every POST form carries a synchronizer token, compared in constant time.
+- **No forged playlist entries** - the add form submits only a video ID. Title,
+  thumbnail and channel come from the server's own copy of the user's latest search,
+  so a crafted request can't inject fake metadata.
+- **Ownership checks** - playlist playback and deletion query by both item ID and
+  the authenticated user ID; search-result playback only accepts videos from the
+  current user's latest results.
+- **SQL injection** - all runtime SQL is parameterized and lives in repositories.
+- **XSS** - EJS escapes every dynamic field, and the Content Security Policy allows
+  YouTube frames and thumbnails but no page scripts.
+- **Input validation** - input length, body size, IDs, thumbnail hosts and embed
+  URLs are all validated.
+- **Rate limiting** - 20 auth attempts per IP per 15 minutes and 10 searches per IP
+  per minute.
+- **No secret leakage** - passwords are never logged, and neither are Axios errors,
+  since their config object contains the API key. The key never leaves the server.
 
 ## Architecture
 
 | Directory | Responsibility |
 | --- | --- |
 | `src/models` | User, Video, PlaylistItem, AppError classes |
-| `src/repositories` | Parameterized runtime SQL; hydrate rows into entities |
-| `src/services` | Authentication, playlist rules, YouTube HTTP, session adapter |
-| `src/controllers` | Class methods handling requests and rendering EJS |
+| `src/repositories` | Parameterized SQL; hydrate rows into entities |
+| `src/services` | Authentication, playlist rules, YouTube HTTP, session store |
+| `src/controllers` | Handle requests and render EJS views |
 | `src/routes` | Route binding and rate-limit configuration |
-| `src/views` | Complete EJS pages and shared partials |
-| `src/middleware` | Class-based security headers, CSRF, authentication |
-| `src/db` | SQLite initialization and static schema |
+| `src/views` | EJS pages and shared partials |
+| `src/middleware` | Security headers, CSRF, authentication |
+| `src/db` | SQLite initialization and schema |
 | `public` | Responsive CSS |
 | `test` | HTTP integration and service tests |
 
-`src/app.js` is the composition root, using constructor injection. `src/server.js`
-loads dotenv and starts the server. Controllers depend on services, services on
-repositories. Views receive class instances. PlaylistItem extends Video and reuses
-its validated embed URL getter. JSON/config objects are used only for framework
-configuration, upstream transport, and session serialization. Cached videos are
-rehydrated before saving. EJS escapes all dynamic fields; only trusted partial
-includes use unescaped output.
+`src/app.js` is the composition root and wires everything with constructor
+injection: controllers depend on services, services on repositories. `PlaylistItem`
+extends `Video` and reuses its validated embed-URL getter, and views receive class
+instances rather than raw rows.
 
 ## Database
 
-- `users`: id, username, password_hash, created_at.
-- `playlist_items`: id, user_id, video_id, title, thumbnail_url, channel_title,
+- `users` - id, username, password_hash, created_at.
+- `playlist_items` - id, user_id, video_id, title, thumbnail_url, channel_title,
   created_at.
-- `sessions`: additional infrastructure table for persisted sessions and expiry.
+- `sessions` - persisted sessions and their expiry.
 
-Usernames are case-insensitively unique. Foreign keys enforce ownership links.
-`UNIQUE(user_id, video_id)` prevents duplicate playlist entries even under concurrent
-submissions. WAL, foreign keys, and a busy timeout are enabled. Schema initialization
-is idempotent; future changes to existing tables require explicit migrations.
-Static schema DDL runs during initialization; all runtime SQL is in repositories.
+Usernames are unique case-insensitively, and foreign keys enforce ownership.
+`UNIQUE(user_id, video_id)` prevents duplicate playlist entries even under
+concurrent submissions. WAL mode, foreign keys and a busy timeout are enabled, and
+schema initialization is idempotent.
 
 ## Routes
 
@@ -98,34 +91,8 @@ Static schema DDL runs during initialization; all runtime SQL is in repositories
 | POST | `/playlist/:id/remove` | Remove an owned item |
 | GET | `/playlist/:id/play` | Play a video saved in the user's playlist |
 
-Search, search-result playback, and playlist routes require login. All POST forms
-require a CSRF token. Successful mutations redirect with 303; errors render EJS
-with relevant statuses.
-
-## Validation and security
-
-- bcrypt cost 12; passwords require at least 8 characters and at most 72 UTF-8
-  bytes to avoid silent bcrypt truncation.
-- Session IDs rotate on login/registration; logout destroys the stored session.
-- SQLite-backed sessions survive restarts and expire after 30 minutes of inactivity.
-  Cookies are HttpOnly, SameSite=Lax, and Secure in production.
-- Synchronizer-token CSRF protection uses constant-time comparison.
-- Playlist playback and deletion query by both item ID and authenticated user ID.
-- Search-result playback accepts only videos contained in the latest server-side
-  search results stored in the authenticated user's session.
-- Add forms submit only the video ID. Metadata comes from the server's most recent
-  successful search, preventing forged titles/URLs. Older tabs may need a new search.
-- Input length, body size, IDs, thumbnail hosts, and embed URLs are validated.
-- CSP allows YouTube frames/thumbnails and disallows page scripts. Referrer policy
-  preserves origin information required for embedding.
-- Rate limits: 20 auth attempts/IP/15 minutes and 10 search-page requests/IP/minute.
-  Counters are process-local and reset on restart.
-- Passwords and Axios errors are not logged; Axios config can expose the API key.
-
-Deployment requires HTTPS, NODE_ENV=production, a strong secret, and durable storage
-for DB_PATH. Set TRUST_PROXY=1 only behind exactly one trusted reverse proxy; use
-0 for local HTTP. Multiple server instances would need coordinated rate limiting
-and a suitable database strategy. This is a single-process course application.
+Search, playback and playlist routes require login. Successful mutations redirect
+with 303; errors render an EJS page with the relevant status code.
 
 ## Tests
 
@@ -133,19 +100,55 @@ and a suitable database strategy. This is a single-process course application.
 npm test
 ```
 
-The suite uses actual Express routes, EJS, bcrypt, and temporary SQLite files. It
-covers auth validation, case-insensitive duplicate usernames, session rotation,
-missing/malformed CSRF, SQL-injection-style input, escaped titles, forged additions,
-duplicate items, ownership isolation, session/playlist persistence after reopening
-the database, expiration, and logout. Service tests verify the YouTube request,
-Video mapping, and failure responses using an injected client.
+The suite runs against the real Express routes, EJS views, bcrypt and temporary
+SQLite files. It covers auth validation, case-insensitive duplicate usernames,
+session rotation, missing and malformed CSRF tokens, SQL-injection-style input,
+escaped titles, forged additions, duplicate items, ownership isolation, search-result
+playback scoping, persistence after reopening the database, session expiry, and
+logout. Service tests verify the YouTube request, Video mapping and failure handling
+through an injected HTTP client, so no real API key or network access is needed.
 
-Direct playback from search results is implemented through the same validated
-`Video` entity and player view. Add a dedicated HTTP integration test for
-`/watch/:videoId` if this optional feature is part of the submitted grading scope.
+## Getting started
 
-Live Google search and actual iframe playback require your API key and a browser;
-the automated tests use deterministic fixtures for the external service.
+Use Node.js 22 or 24 and npm:
+
+```bash
+npm ci
+cp .env.example .env
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+```
+
+Copy the generated secret into `SESSION_SECRET` in `.env`, set your own
+`YOUTUBE_API_KEY`, then run:
+
+```bash
+npm start
+```
+
+Open http://localhost:3000 (or use `npm run dev` for watch mode). The SQLite
+database and its directory are created automatically. The native modules
+better-sqlite3 and bcrypt may need Python and C/C++ build tools if no prebuilt
+binary exists for your platform.
+
+### YouTube API key
+
+Create or select a Google Cloud project, enable YouTube Data API v3, create an API
+key and restrict it to that API. On a server with fixed outbound IPs, add an IP
+restriction too - browser referrer restrictions don't work for server-side
+requests. No API key is included in this repository.
+
+Searches request `part=snippet`, `type=video`, `videoEmbeddable=true` and
+`maxResults=12`. Playlists are local to this app and never modify the user's
+YouTube account. Only the latest search results are kept in the session, so an
+older search tab may need a fresh search before playing or saving a video.
+
+### Deployment notes
+
+Production needs HTTPS, `NODE_ENV=production`, a strong session secret, and durable
+storage for `DB_PATH`. Set `TRUST_PROXY=1` only behind exactly one trusted reverse
+proxy (use `0` for local HTTP). Rate-limit counters are in-process, so running
+multiple instances would require a shared rate-limit store and a different
+database strategy.
 
 ## References
 
